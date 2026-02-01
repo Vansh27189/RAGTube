@@ -1,6 +1,7 @@
 import os
 import re
 import streamlit as st
+import pypdf
 from urllib.parse import urlparse, parse_qs
 from langchain_google_genai import ChatGoogleGenerativeAI,GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import PromptTemplate
@@ -13,96 +14,63 @@ from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 load_dotenv()
 
-st.set_page_config(page_title="RAGTube", layout="centered")
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-st.title("🎥 RAGTube")
-st.info("👉 Please enter a YouTube video URL and then type your question before clicking **Ask**.")
 
-url = st.text_input(
-    "YouTube Video URL",
-    placeholder="https://www.youtube.com/watch?v=..."
+
+
+st.set_page_config(page_title="StudyRAG", layout="centered")
+
+st.title("🎥 StudyRAG")
+st.info(
+    "Upload your lecture notes (PDF or TXT) and ask questions. "
+    "Answers are generated only from your notes."
+)
+
+uploaded_file = st.file_uploader(
+    "UPLOAD YOUR NOTES",
+    type=["pdf","txt"]
 )
 
 
 question =st.text_input(
     "Your Question",
-    placeholder="What is this video about?"
+    placeholder="What is backpropagation?"
 )
 
+def read_pdf(file):
+    reader = pypdf.PdfReader(file)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    return text
 
-def extract_video_id(url: str) -> str:
-    short_match = re.search(r"youtube\.be/([^?&]+)",url)
-    if short_match:
-        return short_match.group(1)
-    
-    shorts_match = re.search(r"youtube\.com/shorts/([^?&]+)", url)
-    if shorts_match:
-        return shorts_match.group(1)
-    
-    parsed_url = urlparse(url)
-    query = parse_qs(parsed_url.query)
-    if "v" in query:
-        return query["v"][0]
+def read_txt(file):
+    return file.read().decode("utf-8")
 
 
-    raise ValueError("Invalid YouTube URL")
 
 
 #ID EXTRACTOR FROM URL
 
+
+
 if st.button("ASK"):
-    if not url or not question:
-        st.warning("Please enter both URL and question.")
+    if not uploaded_file or not question:
+        st.warning("Please upload notes and enter a question.")
     else:
-        with st.spinner("Fetching transcript and generating answer..."):
+        with st.spinner("Processing notes and generating answer..."):
             try:
-                #STEP 1 - INDEXING (CALLING YT API)
-
-                video_id = extract_video_id(url) #only ID
-                try:
-                    api = YouTubeTranscriptApi() #INSTANCE
-
-                    # 1. List available transcript tracks
-                    transcripts = api.list(video_id) #Transcript object - language, language_code , Fetch
-
-                    
-                    chosen = None
-                    for t in transcripts:
-                        if t.language_code == "en": # FROM transcript object - language code
-                            chosen = t  #chosen → Transcript object(language="English", code="en")
-                            break
-                        if t.language_code == "hi":
-                            chosen = t
-
-                    if not chosen:
-                        raise Exception("No Hindi or English captions available")
-
-                    # 3. Fetch transcript
-                    fetched = chosen.fetch()  
-
-
-                #     FETCHED TRANSCRIPT OBJECT 
-                #     fetched.snippets = [
-                #     Snippet(text="Hello everyone", start=0.0, duration=1.5),
-                #     Snippet(text="Today we will learn how artificial intelligence works", start=1.6, duration=4.0),
-                #     Snippet(text="AI is changing the world very fast", start=5.7, duration=3.2)
-                # ]
-                    
-
-                    # 4. Convert to raw format (list of dicts)
-                    transcript_list = fetched.to_raw_data() # remove object and get inner data like text,start,duration from above fetched object
-
-                    # 5. Join into plain text
-                    transcript = " ".join(chunk["text"] for chunk in transcript_list)
-                    # print(transcript)
-
-                except Exception as e:
-                    raise Exception(f"Transcript error: {e}")
+                if uploaded_file.type == "application/pdf":
+                    text = read_pdf(uploaded_file)
+                else:
+                    text = read_txt(uploaded_file)
 
 
                 ## STEP 1B - TEXT SPLITTER
                 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                chunks = splitter.create_documents([transcript]) # MADE langchain DOCUMENT with PAGE_CONTENT AND METADATA of TEXT stored in transcript variable and split and made chunks
+                chunks = splitter.create_documents([text]) # MADE langchain DOCUMENT with PAGE_CONTENT AND METADATA of TEXT stored in transcript variable and split and made chunks
 
                 ##EMBEDDING 
                 embeddings = HuggingFaceEndpointEmbeddings(
@@ -131,20 +99,32 @@ if st.button("ASK"):
                 prompt = PromptTemplate(
                     template=
                     ''' 
-                    You are a helpful assistant.
+                    You are a careful study assistant.
 
-                    The transcript context may be in any language.
-                    ALWAYS answer in ENGLISH.
+                    Use ONLY the provided lecture notes and chat history.
+                    Do not use outside knowledge.
+                    If the answer is not present, say "I don't know."
 
-                    Answer only from the provided transcript context.
-                    If the context is insufficient, say "I don't know".
-                    context - {context}
-                    question - {question}
+                    Chat History:
+                    {chat_history}
+
+                    Lecture Notes:
+                    {context}
+
+                    Current Question:
+                    {question}
+
                 ''',
-                input_variables=['context','question']
+                input_variables=['chat_history','context','question']
                 )
 
-                
+                def format_history(history):
+                    return "\n".join(
+                    f"User: {q}\nAssistant: {a}"
+                    for q, a in history
+    )
+                def get_chat_history(_):
+                    return format_history(st.session_state.get("chat_history", []))
 
 
 
@@ -152,11 +132,14 @@ if st.button("ASK"):
 
                 parallel_chain = RunnableParallel({
                     'context': retriever | RunnableLambda(joined_text),
-                    'question': RunnablePassthrough()
+                    'question': RunnablePassthrough(),
+                    'chat_history':RunnableLambda(get_chat_history)
                 })
                 parser = StrOutputParser()
                 main_chain = RunnableSequence(parallel_chain | prompt | llm | parser)
                 final_answer = main_chain.invoke(question)
+                st.session_state.chat_history.append((question, final_answer))
+
                 with st.container():
                     st.markdown(
                         f"""
@@ -178,4 +161,5 @@ if st.button("ASK"):
                 st.error((e))
                 
 
-
+if st.button("Clear Conversation"):
+    st.session_state.chat_history = []

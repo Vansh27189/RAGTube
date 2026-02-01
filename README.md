@@ -1,34 +1,33 @@
-# 🎥 TubeSage — Ask Questions from YouTube Videos
+# 📘 StudyRAG
 
-**TubeSage** is an AI-powered web application that lets you ask questions directly from any YouTube video and receive accurate, context-aware answers based strictly on the video’s transcript.
-
-Instead of manually watching long videos, TubeSage extracts the transcript, retrieves the most relevant segments using semantic search, and applies a Retrieval-Augmented Generation (RAG) pipeline to answer your questions reliably.
-
-👉 **Live App:**  
-🔗 https://ragtube-vansh.streamlit.app/
+**StudyRAG** is an AI-powered study assistant that lets you upload lecture notes (PDF or TXT) and ask questions directly from them.  
+It uses a **Retrieval-Augmented Generation (RAG)** pipeline with conversational memory to provide accurate, context-aware answers strictly based on your notes.
 
 ---
 
 ## ✨ Features
 
-- 📌 Ask natural-language questions about YouTube videos  
-- 🧠 Answers generated only from the video transcript (no hallucinations)  
-- 🌐 Supports **English and Hindi** transcripts  
-- 🗣 Answers in the **same language as the user’s question**  
-- ⚡ Fast semantic search using FAISS  
-- 🎨 Clean and simple Streamlit UI  
+- 📂 Upload lecture notes in **PDF or TXT** format  
+- ❓ Ask natural-language questions from your notes  
+- 🧠 Conversational memory for follow-up questions  
+- 🚫 No hallucinations — answers only from provided content  
+- ⚡ Fast semantic search using **FAISS**  
+- 🎨 Clean and simple **Streamlit UI**  
 
 ---
 
-## 🔧 How It Works
+## 🧠 How It Works
 
-1. User provides a YouTube video URL and a question  
-2. The app fetches the transcript using the YouTube Transcript API  
-3. The transcript is split into chunks and embedded  
-4. FAISS retrieves the most relevant transcript segments  
-5. A Gemini-based LLM generates an answer using only the retrieved context  
+1. User uploads lecture notes (PDF or TXT)  
+2. Text is extracted and split into chunks  
+3. Chunks are embedded using **Hugging Face embeddings**  
+4. **FAISS** retrieves the most relevant chunks  
+5. A **Gemini LLM** generates an answer using:
+   - Retrieved context
+   - Previous chat history (memory)
+6. The answer is shown and stored for follow-up questions  
 
-This ensures responses are **accurate, grounded, and explainable**.
+This ensures responses are **grounded, explainable, and accurate**.
 
 ---
 
@@ -37,61 +36,81 @@ This ensures responses are **accurate, grounded, and explainable**.
 - **Python**
 - **Streamlit**
 - **LangChain (Runnables API)**
-- **Google Gemini (LLM)**
-- **FAISS** (vector similarity search)
-- **Hugging Face Sentence Transformers**
-- **YouTube Transcript API**
+- **Google Gemini**
+- **FAISS**
+- **Hugging Face Embeddings**
+- **PyPDF**
 
 ---
 
-## 🚀 Getting Started (Local Setup)
+## 🚀 Getting Started
 
 ### 1️⃣ Clone the repository
 ```bash
-git clone https://github.com/your-username/tubesage.git
-cd tubesage
+git clone https://github.com/your-username/studyrag.git
+cd studyrag
 ```
 
-### 2️⃣ Install dependencies
+### 2️⃣ Create a virtual environment
+```bash
+python -m venv venv
+source venv/bin/activate   # On Windows: venv\Scripts\activate
+```
+
+### 3️⃣ Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Set environment variables
-Create a `.env` file in the project root:
+### 4️⃣ Set environment variables
+
+Create a `.env` file:
 ```env
-HF_TOKEN=your_huggingface_token
 GOOGLE_API_KEY=your_google_gemini_api_key
+HF_TOKEN=your_huggingface_token
 ```
 
-### 4️⃣ Run the app
+### 5️⃣ Run the app
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## 🎯 Use Cases
+## 🧪 Example Use Cases
 
-- Studying long lectures and tutorials  
-- Quickly extracting explanations from tech videos  
-- Learning from multilingual educational content  
-- Understanding real-world RAG pipeline implementation  
+- Studying from lecture notes and PDFs  
+- Exam preparation and quick revision  
+- Understanding complex topics from class material  
+- Demonstrating a real-world **RAG + memory** system  
 
 ---
 
 ## 📌 Notes
 
-- The app answers **only from the transcript context**
-- If the answer is not present in the video, it responds with **"I don't know."**
-- This project demonstrates a **production-style RAG architecture**
+- This project is **cloud-safe** (no web scraping or ToS issues)  
+- Memory is session-based (per user, per browser session)  
+- Ideal as a **portfolio project** or learning reference  
 
 ---
 
-## 📄 License
+## ⭐ Why This Project Matters
 
-This project is open-source and available under the MIT License.
+- Demonstrates real-world **RAG architecture**
+- Shows correct handling of **conversational memory**
+- Clean separation of retrieval and generation
+- Production-aware design choices
 
 ---
 
-### ⭐ If you find this project useful, consider starring the repository!
+## 🔮 Future Improvements
+
+- Multiple file uploads  
+- Persistent memory (DB / Redis)  
+- Exam mode (short answers only)  
+- Highlight retrieved chunks  
+- Support for DOCX files  
+
+---
+
+Happy learning! 🎓
