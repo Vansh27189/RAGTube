@@ -1,13 +1,12 @@
 import os
 import re
-import streamlit as st
 import pypdf
+import streamlit as st
 from urllib.parse import urlparse, parse_qs
 from langchain_google_genai import ChatGoogleGenerativeAI,GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_huggingface.embeddings import HuggingFaceEndpointEmbeddings
 from langchain_core.runnables import RunnableParallel, RunnableSequence, RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
