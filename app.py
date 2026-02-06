@@ -51,7 +51,7 @@ def read_txt(file):
 
 
 
-#ID EXTRACTOR FROM URL
+
 
 
 
