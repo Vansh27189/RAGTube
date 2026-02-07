@@ -1,8 +1,6 @@
 import os
-import re
 import pypdf
 import streamlit as st
-from urllib.parse import urlparse, parse_qs
 from langchain_google_genai import ChatGoogleGenerativeAI,GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
@@ -12,14 +10,13 @@ from langchain_core.runnables import RunnableParallel, RunnableSequence, Runnabl
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 load_dotenv()
+
+
 st.set_page_config(page_title="StudyRAG", layout="centered")
 
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-
-
-
 
 
 
@@ -49,10 +46,6 @@ def read_pdf(file):
 
 def read_txt(file):
     return file.read().decode("utf-8")
-
-
-
-
 
 
 
