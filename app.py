@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI,GoogleGenerativeAIEmbe
 from langchain_core.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain_huggingface.embeddings import HuggingFaceEndpointEmbeddings
 from langchain_core.runnables import RunnableParallel, RunnableSequence, RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -42,10 +43,40 @@ def read_pdf(file):
     text = ""
     for page in reader.pages:
         text += page.extract_text() + "\n"
+
+    if len(text.strip()) < 200:
+            raise ValueError(
+                "This PDF looks like a scanned or image-based file.\n"
+                "OCR is not supported.\n"
+                "Please upload a text-based PDF."
+            )
+
     return text
+
+
 
 def read_txt(file):
     return file.read().decode("utf-8")
+
+
+
+@st.cache_resource(show_spinner=False)
+def build_vector_store(text):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=100
+    )
+    chunks = splitter.create_documents([text])
+
+    embeddings = HuggingFaceEndpointEmbeddings(
+        model="sentence-transformers/all-MiniLM-L6-v2",
+        task="feature-extraction",
+        huggingfacehub_api_token=os.getenv("HF_TOKEN")
+    )
+
+    return FAISS.from_documents(chunks, embeddings)
+
+
 
 
 
@@ -62,18 +93,8 @@ if st.button("ASK"):
                     text = read_txt(uploaded_file)
 
 
-                ## STEP 1B - TEXT SPLITTER
-                splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                chunks = splitter.create_documents([text]) # MADE langchain DOCUMENT with PAGE_CONTENT AND METADATA of TEXT stored in transcript variable and split and made chunks
+                vector_store = build_vector_store(text)
 
-                ##EMBEDDING 
-                embeddings = HuggingFaceEndpointEmbeddings(
-                    model = "sentence-transformers/all-MiniLM-L6-v2",
-                    task="feature-extraction",
-                    huggingfacehub_api_token=os.getenv("HF_TOKEN")
-                )
-                vector_store = FAISS.from_documents(chunks, embeddings)
-                # print(vector_store.index_to_docstore_id) #IT  PRINTS VECTOR EMBEDDINGS
 
 
                 ## retriever
@@ -85,10 +106,14 @@ if st.button("ASK"):
                     return joined_docs
 
 
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash",
-                    temperature = 0.2
+                llm = HuggingFaceEndpoint(
+                    repo_id="meta-llama/Meta-Llama-3-70B-Instruct",
+                    task="conversational",
+                    max_new_tokens=512,  
+                    temperature=0.7,     
+                    huggingfacehub_api_token=os.getenv("HF_TOKEN")
                 )
+                chat_model = ChatHuggingFace(llm=llm)
 
                 prompt = PromptTemplate(
                     template=
@@ -125,7 +150,7 @@ if st.button("ASK"):
                     'chat_history':RunnableLambda(get_chat_history)
                 })
                 parser = StrOutputParser()
-                main_chain = RunnableSequence(parallel_chain | prompt | llm | parser)
+                main_chain = RunnableSequence(parallel_chain | prompt | chat_model | parser)
                 final_answer = main_chain.invoke(question)
                 st.session_state.chat_history.append((question, final_answer))
 
